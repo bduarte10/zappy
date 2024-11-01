@@ -7,7 +7,7 @@ export default async function UserAvatar() {
   if (!session?.user) return null;
 
   return (
-    <div>
+    <div className="w-9 h-9 rounded-full overflow-hidden mr-2">
       <img src={session?.user?.image || ""} alt="User Avatar" />
     </div>
   );

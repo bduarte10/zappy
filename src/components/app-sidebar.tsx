@@ -33,7 +33,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   return (
     <Sidebar {...props}>
-      <SidebarHeader className="text-xl font-bold pl-4">Zappy</SidebarHeader>
+      <SidebarHeader className="text-2xl font-bold pl-4 mb-2">
+        Zappy
+      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>

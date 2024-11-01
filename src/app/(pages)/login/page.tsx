@@ -16,8 +16,9 @@ export default async function SignIn() {
           <CardTitle className="text-2xl">Bem-vindo ao Zappy Bot</CardTitle>
           <CardDescription>Faça login para continuar</CardDescription>
         </CardHeader>
-        <CardContent>
-          <SignInButton />
+        <CardContent className="flex flex-col gap-4">
+          <SignInButton provider="google" />
+          <SignInButton provider="facebook" />
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-gray-500">
