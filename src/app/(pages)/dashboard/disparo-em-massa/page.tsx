@@ -129,9 +129,7 @@ const DisparoEmMassaPage: React.FC = () => {
           </Button>
         </form>
       </CardContent>
-      <CardFooter>
-        {status && <p className="text-sm text-gray-500">{status}</p>}
-      </CardFooter>
+      <CardFooter></CardFooter>
     </Card>
   );
 };
