@@ -1,9 +1,5 @@
 "use client";
-import {
-  ExtractMembersResponse,
-  Group,
-  WhastappService,
-} from "@/app/service/whatsapp";
+import { Group, WhastappService } from "@/app/service/whatsapp";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ColumnDef,
   flexRender,
@@ -33,7 +29,6 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { AlertTriangle } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
@@ -43,63 +38,73 @@ interface ExtractedMember {
   name: string;
   selected: boolean;
 }
+
 const ExtrairMembrosDeGrupo: React.FC = () => {
-  // const [phoneNumbers, setPhoneNumbers] = useState("");
   const [status, setStatus] = useState("");
   const [groups, setGroups] = useState<Group[]>([]);
   const [extractedMembers, setExtractedMembers] = useState<ExtractedMember[]>(
     []
   );
+  const [selectedGroupId, setSelectedGroupId] = useState("");
   const [selectedGroupName, setSelectedGroupName] = useState("");
 
-  const session = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { mutate, isPending } = useMutation({
-    mutationFn: async () => {
-      const response = await WhastappService.getGroups(
-        session?.data?.userId || ""
-      );
+  // Query para obter os grupos
+  const { data: groupsData, isLoading: isGroupsLoading } = useQuery({
+    queryKey: ["groups"],
+    queryFn: async () => {
+      const response = await WhastappService.getGroups();
       return response;
-    },
-
-    onSuccess: (data) => {
-      console.log("Dados recebidos:", data);
-      setGroups(Array.isArray(data.groups) ? data.groups : []);
     },
   });
 
   useEffect(() => {
-    if (session.data?.userId) mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.data?.userId]);
+    if (!isGroupsLoading && groupsData) {
+      setGroups(groupsData.groups);
+    }
+  }, [isGroupsLoading, groupsData]);
 
-  const { mutate: extractMembers } = useMutation({
-    mutationFn: async (groupId: string) => {
-      return await WhastappService.extractMembers(
-        groupId,
-        session?.data?.userId || ""
+  // Query para obter os membros extraídos
+  const {
+    data: groupMembers,
+    refetch: fetchMembers,
+    isLoading: isLoadingMembers,
+  } = useQuery({
+    queryKey: ["extractedMembers"],
+    queryFn: async () => {
+      const response = await WhastappService.getExtractedMembers(
+        selectedGroupId
       );
+      return response;
     },
-    onSuccess: (data: ExtractMembersResponse) => {
-      const formattedMembers = data.contacts.map((contact) => ({
-        id: contact.id,
-        phoneNumber: contact.number,
-        name: contact.name,
-        selected: false,
-      }));
-      setExtractedMembers(formattedMembers);
-      setStatus(`${formattedMembers?.length} membros extraídos com sucesso`);
-    },
+    enabled: !!selectedGroupId, // Desabilitado por padrão, será ativado manualmente
   });
 
-  // Implementar handleExtractMembers
-  const handleExtractMembers = (groupId: string, groupName: string) => {
-    setSelectedGroupName(groupName);
-    setStatus("Extraindo membros...");
-    extractMembers(groupId);
-  };
+  useEffect(() => {
+    if (!isLoadingMembers && groupMembers) {
+      setExtractedMembers(
+        groupMembers.contacts.map((contact) => ({
+          id: contact.id,
+          phoneNumber: contact.number,
+          name: contact.name,
+          selected: false,
+        }))
+      );
+    }
+  }, [groupMembers, isLoadingMembers]);
+
+  const handleExtractMembers = React.useCallback(
+    (groupId: string, groupName: string) => {
+      setSelectedGroupName(groupName);
+      setSelectedGroupId(groupId);
+
+      setStatus("Extraindo membros...");
+      fetchMembers();
+    },
+    [fetchMembers]
+  );
 
   const addSelectedMembersToPhoneNumbers = () => {
     const selectedContacts = extractedMembers
@@ -117,29 +122,32 @@ const ExtrairMembrosDeGrupo: React.FC = () => {
     router.push("/dashboard/disparo-em-massa");
   };
 
-  // Atualizar o botão na tabela
-  const columns: ColumnDef<Group>[] = [
-    {
-      accessorKey: "name",
-      header: "Nome do Grupo",
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const group = row.original;
-        return (
-          <Button
-            onClick={() => handleExtractMembers(group.id, group.name)}
-            disabled={
-              status === "Extraindo membros..." || extractedMembers?.length > 0
-            }
-          >
-            Extrair Membros
-          </Button>
-        );
+  const columns: ColumnDef<Group>[] = React.useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Nome do Grupo",
       },
-    },
-  ];
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const group = row.original;
+          return (
+            <Button
+              onClick={() => handleExtractMembers(group.id, group.name)}
+              disabled={
+                status === "Extraindo membros..." ||
+                extractedMembers?.length > 0
+              }
+            >
+              Extrair Membros
+            </Button>
+          );
+        },
+      },
+    ],
+    [handleExtractMembers, status, extractedMembers]
+  );
 
   const toggleMemberSelection = (index: number) => {
     setExtractedMembers((prev) =>
@@ -220,7 +228,7 @@ const ExtrairMembrosDeGrupo: React.FC = () => {
                     colSpan={columns?.length}
                     className="h-24 text-center"
                   >
-                    {isPending ? <Spinner /> : "Nenhum grupo encontrado"}
+                    {isGroupsLoading ? <Spinner /> : "Nenhum grupo encontrado"}
                   </TableCell>
                 </TableRow>
               )}

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://zappy.adaptable.app",
+  baseURL: "http://localhost:3001",
   headers: {
     "Content-Type": "application/json",
   },
@@ -9,7 +9,6 @@ const api = axios.create({
 
 interface startSessionResponse {
   message: string;
-  userId: string;
   qrCode?: string;
 }
 export interface Group {
@@ -31,36 +30,31 @@ export interface ExtractMembersResponse {
 }
 
 export const WhastappService = {
-  async getStatus(userId: string) {
-    const { data } = await api.get(`/status/${userId}`);
+  async getStatus() {
+    const { data } = await api.get("/status");
     return data;
   },
 
-  async startSession(userId: string) {
-    const { data } = await api.post<startSessionResponse>("/session", {
-      userId,
-    });
-    return data;
-  },
-  async getGroups(userId: string) {
-    const { data } = await api.post<GroupsResponse>("/groups", {
-      userId,
-    });
+  async getSession() {
+    console.log("chamou");
+    const { data } = await api.get<startSessionResponse>("/session");
     return data;
   },
 
-  async extractMembers(groupId: string, userId: string) {
-    const { data } = await api.post<ExtractMembersResponse>(
-      `groups/${groupId}/contacts`,
-      {
-        userId,
-      }
+  async getGroups() {
+    const { data } = await api.get<GroupsResponse>("/groups");
+    return data;
+  },
+
+  async getExtractedMembers(groupId: string) {
+    const { data } = await api.get<ExtractMembersResponse>(
+      `groups/${groupId}/contacts`
     );
     return data;
   },
-  async sendMessages(userId: string, contacts: string[], message: string) {
+
+  async sendMessages(contacts: string[], message: string) {
     const { data } = await api.post("/send-messages", {
-      userId,
       contacts,
       message,
     });

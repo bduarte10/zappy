@@ -16,9 +16,8 @@ import Spinner from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Send } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { QRCodeCanvas } from "qrcode.react";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { toast } from "sonner";
 
 interface Contact {
@@ -28,13 +27,10 @@ interface Contact {
 
 const DisparoEmMassaPage: React.FC = () => {
   const [open, setOpen] = React.useState(false);
-  const [qrCode, setQrCode] = React.useState<string | null>(null);
   const [contacts, setContacts] = React.useState<Contact[]>([]);
   const [message, setMessage] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const session = useSession();
   const queryClient = useQueryClient();
 
   // Obter contatos selecionados do cache
@@ -59,76 +55,57 @@ const DisparoEmMassaPage: React.FC = () => {
   };
 
   // Query para obter o status do WhatsApp
-  const { data: hasWhatsAppSession = {}, isLoading: isStatusLoading } =
+  const { data: hasWhatsAppSession = {}, isLoading: isLoadingStatus } =
     useQuery({
       queryKey: ["status"],
-      queryFn: () => WhastappService.getStatus(session.data?.userId || ""),
+      queryFn: () => WhastappService.getStatus(),
       staleTime: 0,
-      enabled: !!session?.data?.userId,
     });
-
-  // Mutation para iniciar a sessão do WhatsApp
-  const {
-    mutate: startSession,
-    isError,
-    isPending,
-  } = useMutation({
-    mutationFn: async () => {
-      const response = await WhastappService.startSession(
-        session?.data?.userId || ""
-      );
-      return response;
-    },
-    onSuccess: (data) => {
-      const qrCode = data.qrCode;
-      setQrCode(qrCode || null);
-      queryClient.invalidateQueries({ queryKey: ["status"] });
-    },
-    onError: (error) => {
-      console.error("Erro ao iniciar sessão:", error);
-      alert("Erro ao iniciar sessão. Tente novamente.");
-    },
-  });
-
-  // Effect para verificar o status do WhatsApp e abrir o diálogo se necessário
+  console.log("🚀 ~ hasWhatsAppSession:", hasWhatsAppSession);
   useEffect(() => {
-    console.log("Status do WhatsApp:", hasWhatsAppSession);
-
-    if (hasWhatsAppSession?.status === "false") {
-      setOpen(true);
-      startSession();
-    } else {
-      setOpen(false);
-    }
-  }, [isStatusLoading, session.data?.userId, hasWhatsAppSession, startSession]);
-
-  useEffect(() => {
-    if (open) {
-      // Iniciar o intervalo para atualizar o QR code
-      intervalRef.current = setInterval(() => {
-        console.log("Atualizando QR code...");
-        startSession();
-      }, 10000);
-    }
-
-    // Limpar o intervalo quando o diálogo é fechado ou o componente é desmontado
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+    if (!isLoadingStatus) {
+      if (!hasWhatsAppSession?.status) {
+        setOpen(true);
+      } else if (hasWhatsAppSession?.status) {
+        setOpen(false);
       }
-    };
-  }, [open, startSession]);
+    }
+  }, [hasWhatsAppSession, isLoadingStatus]);
+
+  // Query para iniciar a sessão do WhatsApp
+  const {
+    data: startSessionData,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["startSession"],
+    queryFn: () => WhastappService.getSession(),
+  });
+  console.log("🚀 ~ startSessionData:", startSessionData);
+
+  // useEffect(() => {
+  //   if (open) {
+  //     // Iniciar o intervalo para atualizar o QR code
+  //     intervalRef.current = setInterval(() => {
+  //       console.log("Atualizando QR code...");
+  //       startSession();
+  //     }, 10000);
+  //   }
+
+  // Limpar o intervalo quando o diálogo é fechado ou o componente é desmontado
+  //   return () => {
+  //     if (intervalRef.current) {
+  //       clearInterval(intervalRef.current);
+  //       intervalRef.current = null;
+  //     }
+  //   };
+  // }, [open, startSession]);
 
   // Mutation para enviar mensagens
   const { mutate: sendMessages } = useMutation({
     mutationFn: async () => {
       const contactIds = contacts.map((contact) => contact.id);
-      return await WhastappService.sendMessages(
-        session.data?.userId || "",
-        contactIds,
-        message
-      );
+      return await WhastappService.sendMessages(contactIds, message);
     },
     onMutate: () => {
       setIsSending(true);
@@ -238,16 +215,19 @@ const DisparoEmMassaPage: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center">
-              {isPending ? (
+              {isLoading ? (
                 <div className="w-[200px] h-[200px] flex items-center justify-center">
                   <Spinner />
                 </div>
-              ) : isError ? (
+              ) : startSessionData?.qrCode === "" ? (
                 <p className="w-[200px] h-[200px] text-red-500">
                   Erro ao carregar o QR code.
                 </p>
-              ) : qrCode ? (
-                <QRCodeCanvas value={qrCode} size={200} />
+              ) : startSessionData ? (
+                <QRCodeCanvas
+                  value={startSessionData?.qrCode || ""}
+                  size={200}
+                />
               ) : (
                 <p className="w-[200px] h-[200px]">QR code não disponível.</p>
               )}
@@ -257,7 +237,7 @@ const DisparoEmMassaPage: React.FC = () => {
               </p>
             </CardContent>
             <CardFooter className="flex justify-center gap-2">
-              <Button variant="outline" onClick={() => startSession()}>
+              <Button variant="outline" onClick={() => refetch()}>
                 Novo QR Code
               </Button>
               <Button variant="outline" onClick={() => setOpen(false)}>
