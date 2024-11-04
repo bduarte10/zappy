@@ -251,14 +251,17 @@ const DisparoEmMassaPage: React.FC = () => {
               ) : (
                 <p className="w-[200px] h-[200px]">QR code não disponível.</p>
               )}
-              <p className="text-sm text-gray-500 text-center">
+              <p className="text-sm text-gray-500 text-center mt-4">
                 Abra o WhatsApp no seu celular, vá em Configurações {">"}{" "}
                 Dispositivos conectados {">"} Conectar um dispositivo
               </p>
             </CardContent>
-            <CardFooter className="flex justify-center">
+            <CardFooter className="flex justify-center gap-2">
               <Button variant="outline" onClick={() => startSession()}>
                 Novo QR Code
+              </Button>
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Sair
               </Button>
             </CardFooter>
           </Card>
