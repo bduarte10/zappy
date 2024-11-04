@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://zappy.adaptable.app",
+  baseURL: "http://localhost:3001",
   headers: {
     "Content-Type": "application/json",
   },
