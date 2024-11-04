@@ -1,4 +1,9 @@
 "use client";
+import {
+  ExtractMembersResponse,
+  Group,
+  WhastappService,
+} from "@/app/service/whatsapp";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +15,8 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import Spinner from "@/components/ui/spinner";
 import {
   Table,
   TableBody,
@@ -19,67 +25,121 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
-interface Group {
-  id: string;
-  name: string;
-  memberCount: number;
-}
-
 interface ExtractedMember {
+  id: string;
   phoneNumber: string;
+  name: string;
   selected: boolean;
 }
 const ExtrairMembrosDeGrupo: React.FC = () => {
-  const [phoneNumbers, setPhoneNumbers] = useState("");
+  // const [phoneNumbers, setPhoneNumbers] = useState("");
   const [status, setStatus] = useState("");
   const [groups, setGroups] = useState<Group[]>([]);
   const [extractedMembers, setExtractedMembers] = useState<ExtractedMember[]>(
     []
   );
   const [selectedGroupName, setSelectedGroupName] = useState("");
-  useEffect(() => {
-    // Simulate fetching groups from backend
-    setTimeout(() => {
-      const fakeGroups: Group[] = [
-        { id: "group1", name: "Grupo Família", memberCount: 15 },
-        { id: "group2", name: "Equipe de Trabalho", memberCount: 30 },
-        { id: "group3", name: "Chat de Amigos", memberCount: 25 },
-        { id: "group4", name: "Colaboração de Projeto", memberCount: 12 },
-        { id: "group5", name: "Atualizações da Comunidade", memberCount: 50 },
-      ];
-      setGroups(fakeGroups);
-    }, 1000);
-  }, []);
 
+  const session = useSession();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: async () => {
+      const response = await WhastappService.getGroups(
+        session?.data?.userId || ""
+      );
+      return response;
+    },
+
+    onSuccess: (data) => {
+      console.log("Dados recebidos:", data);
+      setGroups(Array.isArray(data.groups) ? data.groups : []);
+    },
+  });
+
+  useEffect(() => {
+    if (session.data?.userId) mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.data?.userId]);
+
+  const { mutate: extractMembers } = useMutation({
+    mutationFn: async (groupId: string) => {
+      return await WhastappService.extractMembers(
+        groupId,
+        session?.data?.userId || ""
+      );
+    },
+    onSuccess: (data: ExtractMembersResponse) => {
+      const formattedMembers = data.contacts.map((contact) => ({
+        id: contact.id,
+        phoneNumber: contact.number,
+        name: contact.name,
+        selected: false,
+      }));
+      setExtractedMembers(formattedMembers);
+      setStatus(`${formattedMembers?.length} membros extraídos com sucesso`);
+    },
+  });
+
+  // Implementar handleExtractMembers
   const handleExtractMembers = (groupId: string, groupName: string) => {
-    setStatus(`Extraindo membros do grupo ${groupName}...`);
     setSelectedGroupName(groupName);
-    // Simulate member extraction
-    setTimeout(() => {
-      const fakeMembers = [
-        "+1234567890",
-        "+9876543210",
-        "+1122334455",
-        "+5544332211",
-        "+6677889900",
-      ];
-      setExtractedMembers(
-        fakeMembers.map((number) => ({ phoneNumber: number, selected: false }))
-      );
-      setStatus(
-        `Extraídos ${fakeMembers.length} membros de ${groupName} (simulado)`
-      );
-    }, 2000);
+    setStatus("Extraindo membros...");
+    extractMembers(groupId);
   };
+
+  const addSelectedMembersToPhoneNumbers = () => {
+    const selectedContacts = extractedMembers
+      .filter((member) => member.selected)
+      .map((member) => ({
+        id: member.id,
+        number: member.phoneNumber,
+        name: member.name,
+      }));
+
+    // Armazenar contatos selecionados no cache
+    queryClient.setQueryData(["selectedContacts"], selectedContacts);
+
+    // Redirecionar para página de disparo
+    router.push("/dashboard/disparo-em-massa");
+  };
+
+  // Atualizar o botão na tabela
+  const columns: ColumnDef<Group>[] = [
+    {
+      accessorKey: "name",
+      header: "Nome do Grupo",
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const group = row.original;
+        return (
+          <Button
+            onClick={() => handleExtractMembers(group.id, group.name)}
+            disabled={
+              status === "Extraindo membros..." || extractedMembers?.length > 0
+            }
+          >
+            Extrair Membros
+          </Button>
+        );
+      },
+    },
+  ];
 
   const toggleMemberSelection = (index: number) => {
     setExtractedMembers((prev) =>
@@ -95,54 +155,6 @@ const ExtrairMembrosDeGrupo: React.FC = () => {
       return prev.map((member) => ({ ...member, selected: !allSelected }));
     });
   };
-
-  const saveContactList = (listName: string) => {
-    const selectedMembers = extractedMembers.filter(
-      (member) => member.selected
-    );
-    console.log(
-      `Salvando lista "${listName}" com ${selectedMembers.length} contatos`
-    );
-    // Aqui você implementaria a lógica para salvar a lista no backend
-  };
-
-  const addSelectedMembersToPhoneNumbers = () => {
-    const selectedNumbers = extractedMembers
-      .filter((member) => member.selected)
-      .map((member) => member.phoneNumber);
-
-    const currentNumbers = phoneNumbers
-      .split(",")
-      .map((num) => num.trim())
-      .filter((num) => num !== "");
-    const newNumbers = [...new Set([...currentNumbers, ...selectedNumbers])];
-    setPhoneNumbers(newNumbers.join(", "));
-    setStatus(
-      `Adicionados ${selectedNumbers.length} números à lista de destinatários`
-    );
-  };
-
-  const columns: ColumnDef<Group>[] = [
-    {
-      accessorKey: "name",
-      header: "Nome do Grupo",
-    },
-    {
-      accessorKey: "memberCount",
-      header: "Número de Membros",
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const group = row.original;
-        return (
-          <Button onClick={() => handleExtractMembers(group.id, group.name)}>
-            Extrair Membros
-          </Button>
-        );
-      },
-    },
-  ];
 
   const table = useReactTable({
     data: groups,
@@ -167,7 +179,7 @@ const ExtrairMembrosDeGrupo: React.FC = () => {
             do grupo e cumprir as políticas do WhatsApp.
           </AlertDescription>
         </Alert>
-        <div className="rounded-md border mb-4">
+        <div className="rounded-md border mb-4 max-h-[600px] overflow-auto">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -205,58 +217,60 @@ const ExtrairMembrosDeGrupo: React.FC = () => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={columns.length}
+                    colSpan={columns?.length}
                     className="h-24 text-center"
                   >
-                    Sem resultados.
+                    {isPending ? <Spinner /> : "Nenhum grupo encontrado"}
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
-        {extractedMembers.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">
-              Membros Extraídos de {selectedGroupName}:
-            </h3>
-            <div className="flex justify-between items-center">
-              <Button variant="outline" onClick={toggleAllMembers}>
-                Selecionar Todos
-              </Button>
-            </div>
-            <div className="max-h-60 overflow-y-auto border rounded-md p-2">
-              {extractedMembers.map((member, index) => (
-                <div key={index} className="flex items-center space-x-2 py-1">
-                  <Checkbox
-                    id={`member-${index}`}
-                    checked={member.selected}
-                    onCheckedChange={() => toggleMemberSelection(index)}
-                  />
-                  <label htmlFor={`member-${index}`} className="text-sm">
-                    {member.phoneNumber}
-                  </label>
+        <Dialog open={extractedMembers?.length > 0}>
+          <DialogContent>
+            <DialogTitle className="sr-only">Membros Extraídos</DialogTitle>
+            {extractedMembers?.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">
+                  Membros Extraídos de {selectedGroupName}:
+                </h3>
+                <div className="flex justify-between items-center">
+                  <Button variant="outline" onClick={toggleAllMembers}>
+                    {extractedMembers.every((member) => member.selected)
+                      ? "Desmarcar Todos"
+                      : "Selecionar Todos"}
+                  </Button>
+                  <Button
+                    onClick={addSelectedMembersToPhoneNumbers}
+                    disabled={
+                      !extractedMembers.some((member) => member.selected)
+                    }
+                  >
+                    Adicionar aos Destinatários
+                  </Button>
                 </div>
-              ))}
-            </div>
-            <div className="flex space-x-2">
-              <Input placeholder="Nome da nova lista" />
-              <Button
-                variant="outline"
-                onClick={() => saveContactList("Nome da Lista")}
-              >
-                Salvar Lista
-              </Button>
-            </div>
-            <Button
-              onClick={addSelectedMembersToPhoneNumbers}
-              className="w-full"
-            >
-              <ArrowRight className="mr-2 h-4 w-4" /> Adicionar Selecionados aos
-              Destinatários
-            </Button>
-          </div>
-        )}
+                <div className="max-h-60 overflow-y-auto border rounded-md p-2">
+                  {extractedMembers.map((member, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center space-x-2 py-1"
+                    >
+                      <Checkbox
+                        id={`member-${index}`}
+                        checked={member.selected}
+                        onCheckedChange={() => toggleMemberSelection(index)}
+                      />
+                      <label htmlFor={`member-${index}`} className="text-sm">
+                        {member.name} ({member.phoneNumber})
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
       <CardFooter>
         {status && <p className="text-sm text-gray-500">{status}</p>}

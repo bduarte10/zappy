@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+"use client";
 import { AppSidebar } from "@/components/app-sidebar";
 import UserAvatar from "@/components/ui/avatar";
 
@@ -10,16 +10,15 @@ import {
 } from "@/components/ui/sidebar";
 import { SignOutButton } from "@/components/ui/sign-out-button";
 import { ThemeToggle } from "@/components/ui/toggle-theme";
-import { redirect } from "next/navigation";
+import { useSession } from "next-auth/react";
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
+  const { data: session } = useSession();
 
-  if (!session) return redirect("/login");
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -33,7 +32,7 @@ export default async function DashboardLayout({
           <div className="flex items-center ">
             <ThemeToggle />
             <Separator orientation="vertical" className="mx-2 h-4" />
-            <UserAvatar />
+            {session?.user?.image && <UserAvatar />}
             <SignOutButton />
           </div>
         </header>
