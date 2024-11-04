@@ -61,12 +61,12 @@ const DisparoEmMassaPage: React.FC = () => {
       queryFn: () => WhastappService.getStatus(),
       staleTime: 0,
     });
-  console.log("🚀 ~ hasWhatsAppSession:", hasWhatsAppSession);
+
   useEffect(() => {
     if (!isLoadingStatus) {
-      if (!hasWhatsAppSession?.status) {
+      if (hasWhatsAppSession?.status === "false") {
         setOpen(true);
-      } else if (hasWhatsAppSession?.status) {
+      } else if (hasWhatsAppSession?.status === "true") {
         setOpen(false);
       }
     }
