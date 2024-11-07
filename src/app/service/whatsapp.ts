@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://zappy.adaptable.app",
+  baseURL: "https://zappy-backend.onrender.com",
+  // baseURL: "http://localhost:3001",
   headers: {
     "Content-Type": "application/json",
   },
