@@ -59,7 +59,7 @@ const DisparoEmMassaPage: React.FC = () => {
     useQuery({
       queryKey: ["status"],
       queryFn: () => WhastappService.getStatus(),
-      staleTime: 0,
+      refetchInterval: 5000,
     });
 
   useEffect(() => {
@@ -80,6 +80,7 @@ const DisparoEmMassaPage: React.FC = () => {
   } = useQuery({
     queryKey: ["startSession"],
     queryFn: () => WhastappService.getSession(),
+    refetchInterval: 5000,
   });
   console.log("🚀 ~ startSessionData:", startSessionData);
 
@@ -219,9 +220,9 @@ const DisparoEmMassaPage: React.FC = () => {
                 <div className="w-[200px] h-[200px] flex items-center justify-center">
                   <Spinner />
                 </div>
-              ) : startSessionData?.qrCode === "" ? (
+              ) : !startSessionData?.qrCode ? (
                 <p className="w-[200px] h-[200px] text-red-500">
-                  Erro ao carregar o QR code.
+                  {startSessionData?.message}
                 </p>
               ) : startSessionData ? (
                 <QRCodeCanvas
