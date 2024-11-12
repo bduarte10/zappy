@@ -1,6 +1,8 @@
 "use client";
+import { WhastappService } from "@/app/service/whatsapp";
 import { AppSidebar } from "@/components/app-sidebar";
 import UserAvatar from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 
 import { Separator } from "@/components/ui/separator";
 import {
@@ -11,6 +13,7 @@ import {
 import { SignOutButton } from "@/components/ui/sign-out-button";
 import { ThemeToggle } from "@/components/ui/toggle-theme";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 export default function DashboardLayout({
   children,
@@ -18,6 +21,11 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }>) {
   const { data: session } = useSession();
+
+  const handleLogout = () => {
+    WhastappService.logout();
+    toast.success("Desconectado com sucesso");
+  };
 
   return (
     <SidebarProvider>
@@ -33,6 +41,9 @@ export default function DashboardLayout({
             <ThemeToggle />
             <Separator orientation="vertical" className="mx-2 h-4" />
             {session?.user?.image && <UserAvatar />}
+            <Button variant="outline" className="mx-2" onClick={handleLogout}>
+              Desconectar WhatsApp
+            </Button>
             <SignOutButton />
           </div>
         </header>

@@ -182,9 +182,9 @@ const ExtrairMembrosDeGrupo: React.FC = () => {
         <Alert variant="warning" className="mb-4">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Aviso</AlertTitle>
-          <AlertDescription>
-            Certifique-se de ter permissão para extrair informações dos membros
-            do grupo e cumprir as políticas do WhatsApp.
+          <AlertDescription className="text-sm  font-bold">
+            Esta operação pode levar algum tempo, dependendo da quantidade de
+            grupos.
           </AlertDescription>
         </Alert>
         <div className="rounded-md border mb-4 max-h-[600px] overflow-auto">

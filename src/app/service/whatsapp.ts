@@ -60,4 +60,11 @@ export const WhastappService = {
     });
     return data;
   },
+
+  async logout() {
+    await api.post("/logout");
+    return {
+      message: "Sessão encerrada com sucesso",
+    };
+  },
 };
