@@ -62,16 +62,6 @@ const DisparoEmMassaPage: React.FC = () => {
       refetchInterval: 5000,
     });
 
-  useEffect(() => {
-    if (!isLoadingStatus) {
-      if (hasWhatsAppSession?.status === "false") {
-        setOpen(true);
-      } else if (hasWhatsAppSession?.status === "true") {
-        setOpen(false);
-      }
-    }
-  }, [hasWhatsAppSession, isLoadingStatus]);
-
   // Query para iniciar a sessão do WhatsApp
   const {
     data: startSessionData,
@@ -81,28 +71,18 @@ const DisparoEmMassaPage: React.FC = () => {
     queryKey: ["startSession"],
     queryFn: () => WhastappService.getSession(),
     refetchInterval: 5000,
+    enabled: open,
   });
+
+  // Combinar os efeitos useEffect
+  useEffect(() => {
+    if (!isLoadingStatus) {
+      setOpen(hasWhatsAppSession?.status === "false");
+    }
+  }, [hasWhatsAppSession, isLoadingStatus]);
+
   console.log("🚀 ~ startSessionData:", startSessionData);
 
-  // useEffect(() => {
-  //   if (open) {
-  //     // Iniciar o intervalo para atualizar o QR code
-  //     intervalRef.current = setInterval(() => {
-  //       console.log("Atualizando QR code...");
-  //       startSession();
-  //     }, 10000);
-  //   }
-
-  // Limpar o intervalo quando o diálogo é fechado ou o componente é desmontado
-  //   return () => {
-  //     if (intervalRef.current) {
-  //       clearInterval(intervalRef.current);
-  //       intervalRef.current = null;
-  //     }
-  //   };
-  // }, [open, startSession]);
-
-  // Mutation para enviar mensagens
   const { mutate: sendMessages } = useMutation({
     mutationFn: async () => {
       const contactIds = contacts.map((contact) => contact.id);
@@ -127,7 +107,6 @@ const DisparoEmMassaPage: React.FC = () => {
     },
   });
 
-  // Handler para o formulário de envio
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) {

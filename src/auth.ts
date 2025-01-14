@@ -23,9 +23,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    async jwt({ token, user, account }) {
+      // Adicione o accessToken ao token se o usuário acabou de fazer login
+      if (account && user) {
+        token.accessToken = account.access_token; // Obtém o token do provedor
+      }
+      return token;
+    },
     async session({ session, token }) {
       const userId = token.sub as string;
       session.userId = await generateUserId(userId);
+      session.accessToken = token.accessToken as string;
       return session;
     },
   },
