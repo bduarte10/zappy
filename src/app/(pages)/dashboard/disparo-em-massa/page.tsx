@@ -30,6 +30,8 @@ const DisparoEmMassaPage: React.FC = () => {
   const [contacts, setContacts] = React.useState<Contact[]>([]);
   const [message, setMessage] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
+  const [isAudio, setIsAudio] = React.useState(false);
+  const [audioFile, setAudioFile] = React.useState<File | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -54,6 +56,13 @@ const DisparoEmMassaPage: React.FC = () => {
     setMessage(e.target.value);
   };
 
+  // Handler para mudança no arquivo de áudio
+  const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setAudioFile(e.target.files[0]);
+    }
+  };
+
   // Query para obter o status do WhatsApp
   const { data: hasWhatsAppSession = {}, isLoading: isLoadingStatus } =
     useQuery({
@@ -61,16 +70,6 @@ const DisparoEmMassaPage: React.FC = () => {
       queryFn: () => WhastappService.getStatus(),
       refetchInterval: 5000,
     });
-
-  useEffect(() => {
-    if (!isLoadingStatus) {
-      if (hasWhatsAppSession?.status === "false") {
-        setOpen(true);
-      } else if (hasWhatsAppSession?.status === "true") {
-        setOpen(false);
-      }
-    }
-  }, [hasWhatsAppSession, isLoadingStatus]);
 
   // Query para iniciar a sessão do WhatsApp
   const {
@@ -81,32 +80,26 @@ const DisparoEmMassaPage: React.FC = () => {
     queryKey: ["startSession"],
     queryFn: () => WhastappService.getSession(),
     refetchInterval: 5000,
+    enabled: open,
   });
+
+  // Combinar os efeitos useEffect
+  useEffect(() => {
+    if (!isLoadingStatus) {
+      setOpen(hasWhatsAppSession?.status === "false");
+    }
+  }, [hasWhatsAppSession, isLoadingStatus]);
+
   console.log("🚀 ~ startSessionData:", startSessionData);
 
-  // useEffect(() => {
-  //   if (open) {
-  //     // Iniciar o intervalo para atualizar o QR code
-  //     intervalRef.current = setInterval(() => {
-  //       console.log("Atualizando QR code...");
-  //       startSession();
-  //     }, 10000);
-  //   }
-
-  // Limpar o intervalo quando o diálogo é fechado ou o componente é desmontado
-  //   return () => {
-  //     if (intervalRef.current) {
-  //       clearInterval(intervalRef.current);
-  //       intervalRef.current = null;
-  //     }
-  //   };
-  // }, [open, startSession]);
-
-  // Mutation para enviar mensagens
   const { mutate: sendMessages } = useMutation({
     mutationFn: async () => {
       const contactIds = contacts.map((contact) => contact.id);
-      return await WhastappService.sendMessages(contactIds, message);
+      if (isAudio && audioFile) {
+        return await WhastappService.sendAudioMessage(contactIds, audioFile);
+      } else {
+        return await WhastappService.sendMessages(contactIds, message);
+      }
     },
     onMutate: () => {
       setIsSending(true);
@@ -127,11 +120,14 @@ const DisparoEmMassaPage: React.FC = () => {
     },
   });
 
-  // Handler para o formulário de envio
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim()) {
+    if (!isAudio && !message.trim()) {
       alert("Digite uma mensagem");
+      return;
+    }
+    if (isAudio && !audioFile) {
+      alert("Selecione um arquivo de áudio");
       return;
     }
     if (contacts.length === 0) {
@@ -176,23 +172,61 @@ const DisparoEmMassaPage: React.FC = () => {
                 placeholder="selecione contatos extraidos de grupos"
               />
             </div>
-            <div>
-              <label
-                htmlFor="message"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Mensagem
+            <div className="flex items-center mb-4">
+              <label className="block text-sm font-medium text-gray-700 mr-2">
+                Tipo de Mensagem:
               </label>
-              <Textarea
-                id="message"
-                value={message}
-                onChange={handleMessageChange}
-                placeholder="Digite sua mensagem aqui"
-                required
-                rows={4}
-                disabled={isSending}
-              />
+              <Button
+                variant={!isAudio ? "default" : "outline"}
+                onClick={() => setIsAudio(false)}
+                className="mr-2"
+              >
+                Texto
+              </Button>
+              <Button
+                variant={isAudio ? "default" : "outline"}
+                onClick={() => setIsAudio(true)}
+              >
+                Áudio
+              </Button>
             </div>
+            {isAudio ? (
+              <div>
+                <label
+                  htmlFor="audio"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Arquivo de Áudio
+                </label>
+                <Input
+                  id="audio"
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleAudioChange}
+                  required
+                  disabled={isSending}
+                  className="h-14"
+                />
+              </div>
+            ) : (
+              <div>
+                <label
+                  htmlFor="message"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Mensagem
+                </label>
+                <Textarea
+                  id="message"
+                  value={message}
+                  onChange={handleMessageChange}
+                  placeholder="Digite sua mensagem aqui"
+                  required
+                  rows={4}
+                  disabled={isSending}
+                />
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={isSending}>
               {isSending ? (
                 "Enviando..."

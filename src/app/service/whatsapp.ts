@@ -61,6 +61,19 @@ export const WhastappService = {
     return data;
   },
 
+  async sendAudioMessage(contacts: string[], audioFile: File) {
+    const formData = new FormData();
+    formData.append("audio", audioFile);
+    formData.append("contactIds", JSON.stringify(contacts));
+
+    const { data } = await api.post("/send-audio-messages", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return data;
+  },
+
   async logout() {
     await api.post("/logout");
     return {
